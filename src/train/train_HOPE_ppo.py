@@ -1,8 +1,7 @@
 import sys
-sys.path.append("..")   # 父文件夹，之前一直没调通，正确用法在这里
-sys.path.append(".")    # 将父目录和当前目录加入到系统路径中
-import time
 import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))  # 将当前.py路径的父父文件夹路劲加到系统路径
+import time
 from shutil import copyfile # 文件复制
 import argparse # 命令行参数解析
 
