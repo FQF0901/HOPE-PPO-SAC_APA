@@ -198,11 +198,14 @@ if __name__=="__main__":
 
     ''' 11. train func '''
     for i in range(args.train_episode):
+        # 11.1 场景选择器
         scene_chosen = scene_chooser.choose_case()
         if scene_chosen == 'dlp':
             case_id = dlp_case_chooser.choose_case()
         else:
             case_id = None
+        
+        # 11.2 初始化
         obs = env.reset(case_id, None, scene_chosen)
         parking_agent.reset()
         case_id_list.append(env.map.case_id)
@@ -211,6 +214,8 @@ if __name__=="__main__":
         step_num = 0
         reward_info = []
         xy = []
+
+        # 11.3 主循环：一个完整的训练周期
         while not done:
             step_num += 1
             action, log_prob = parking_agent.choose_action(obs)
@@ -220,6 +225,8 @@ if __name__=="__main__":
             reward_per_state_list.append(reward)
             parking_agent.push_memory((obs, action, reward, done, log_prob, next_obs))
             obs = next_obs
+
+            # 11.3.1 当buffer够大时，开始更新 net para
             if len(parking_agent.memory) % parking_agent.configs.batch_size == 0:
                 if verbose:
                     print("Updating the agent.")
@@ -227,9 +234,11 @@ if __name__=="__main__":
                 writer.add_scalar("actor_loss", actor_loss, i)
                 writer.add_scalar("critic_loss", critic_loss, i)
             
+            # 11.3.2 这啥意思？
             if info['path_to_dest'] is not None:
                 parking_agent.set_planner_path(info['path_to_dest'])
 
+            # 11.3.3 处理done后的状态
             if done:
                 if info['status']==Status.ARRIVED:
                     succ_record.append(1)
@@ -242,7 +251,7 @@ if __name__=="__main__":
                     if scene_chosen == 'dlp':
                         dlp_case_chooser.update_success_record(0, case_id)
 
-            
+        # 11.4 记录训练统计信息 
         writer.add_scalar("total_reward", total_reward, i)
         writer.add_scalar("avg_reward", np.mean(reward_per_state_list[-1000:]), i)
         writer.add_scalar("action_std0", parking_agent.log_std.detach().cpu().numpy().reshape(-1)[0],i)
@@ -256,6 +265,7 @@ if __name__=="__main__":
         reward_info = np.round(reward_info,2)
         reward_info_list.append(list(reward_info))
 
+        # 11.5 输出调试信息 
         if verbose and i%10==0 and i>0:
             print('success rate:',np.sum(succ_record),'/',len(succ_record))
             print(parking_agent.log_std.detach().cpu().numpy().reshape(-1))
@@ -266,24 +276,30 @@ if __name__=="__main__":
                 print(case_id_list[-(10-j)],reward_list[-(10-j)],reward_info_list[-(10-j)])
             print("")
 
-        # save best model
+        # 11.6 保存最优参数
+        # 11.6.1 统计近百次的成功率
         for type_id in scene_chooser.scene_types:
             success_rate_normal = np.mean(scene_chooser.success_record[0][-100:])
             success_rate_complex = np.mean(scene_chooser.success_record[1][-100:])
             success_rate_extreme = np.mean(scene_chooser.success_record[2][-100:])
             success_rate_dlp = np.mean(scene_chooser.success_record[3][-100:])
+
+        # 11.6.2 比较成功率，并保存最有模型
         if success_rate_normal >= best_success_rate[0] and success_rate_complex >= best_success_rate[1] and\
             success_rate_extreme >= best_success_rate[2] and success_rate_dlp >= best_success_rate[3] and i>100:
             raw_best_success_rate = np.array([success_rate_normal, success_rate_complex, success_rate_extreme, success_rate_dlp])
             best_success_rate = list(np.minimum(raw_best_success_rate, scene_chooser.target_success_rate))
-            parking_agent.save("%s/PPO_best.pt" % (save_path),params_only=True)
+            parking_agent.save("%s/PPO_best.pt" % (save_path),params_only=True) # 保存模型和日志 (parking_agent.save 和日志记录)
             f_best_log = open(save_path+'best.txt', 'w')
             f_best_log.write('epoch: %s, success rate: %s %s %s %s'%(i+1, raw_best_success_rate[0],
                                 raw_best_success_rate[1], raw_best_success_rate[2], raw_best_success_rate[3]))
             f_best_log.close()
+
+        # 11.6.3 定期保存模型（每隔2000次迭代保存一次，即便不是最优）
         if (i+1) % 2000 == 0:
             parking_agent.save("%s/PPO2_%s.pt" % (save_path, i),params_only=True)
 
+        # 11.6.4 绘制并保存奖励曲线图
         if verbose and i%20==0:
             episodes = [j for j in range(len(reward_list))]
             mean_reward = [np.mean(reward_list[max(0,j-50):j+1]) for j in range(len(reward_list))]
@@ -299,7 +315,7 @@ if __name__=="__main__":
     # evaluation
     eval_episode = args.eval_episode
     choose_action = True
-    with torch.no_grad():
+    with torch.no_grad():   # 使用torch.no_grad()上下文管理器,确保在评估过程中不进行梯度计算，以节省内存和提高计算效率
         # eval on dlp
         env.set_level('dlp')
         log_path = save_path+'/dlp'
