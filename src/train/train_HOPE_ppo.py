@@ -1,16 +1,16 @@
 import sys
-sys.path.append("..")
-sys.path.append(".")
+sys.path.append("..")   # 父文件夹，之前一直没调通，正确用法在这里
+sys.path.append(".")    # 将父目录和当前目录加入到系统路径中
 import time
 import os
-from shutil import copyfile
-import argparse
+from shutil import copyfile # 文件复制
+import argparse # 命令行参数解析
 
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from torch.utils.tensorboard import SummaryWriter
-
+from torch.utils.tensorboard import SummaryWriter   # SummaryWriter 是用于TensorBoard的写入器，用于记录训练过程中的数据
+# 以下是 引入自定义模块和类
 from model.agent.ppo_agent import PPOAgent as PPO
 from model.agent.parking_agent import ParkingAgent, RsPlanner
 from env.car_parking_base import CarParking
@@ -19,7 +19,7 @@ from env.vehicle import VALID_SPEED,Status
 from evaluation.eval_utils import eval
 from configs import *
 
-
+'''SceneChoose 类，用于场景选择和记录场景的成功率'''
 class SceneChoose():
     def __init__(self) -> None:
         self.scene_types = {0:'Normal', 
@@ -28,11 +28,11 @@ class SceneChoose():
                             3:'dlp',
                             }
         self.target_success_rate = np.array([0.95, 0.95, 0.9, 0.99])
-        self.success_record = {}
+        self.success_record = {}    # 用于记录每种场景类型的成功次数列表
         for scene_name in self.scene_types:
             self.success_record[scene_name] = []
-        self.scene_record = []
-        self.history_horizon = 200
+        self.scene_record = []  # 用于记录选择的场景类型
+        self.history_horizon = 200  # 历史记录的时间窗口大小
         
         
     def choose_case(self,):
@@ -40,15 +40,16 @@ class SceneChoose():
             scene_chosen = self._choose_case_uniform()
         else:
             if np.random.random() > 0.5:
-                scene_chosen = self._choose_case_worst_perform()
+                scene_chosen = self._choose_case_worst_perform()    # 根据最近的成功率选择表现最差的场景类型
             else:
-                scene_chosen = self._choose_case_uniform()
+                scene_chosen = self._choose_case_uniform()  # 均匀地选择场景类型
         self.scene_record.append(scene_chosen)
         return self.scene_types[scene_chosen]
     
     def update_success_record(self, success:int):
         self.success_record[self.scene_record[-1]].append(success)
-
+    
+    '''下面两个私有方法'''
     def _choose_case_uniform(self,):
         case_count = np.zeros(len(self.scene_types))
         for i in range(min(len(self.scene_record), self.history_horizon)):
@@ -67,15 +68,19 @@ class SceneChoose():
         fail_rate = fail_rate/np.sum(fail_rate)
         return np.random.choice(np.arange(len(fail_rate)), p=fail_rate)
 
+'''用于选择DLP ( Data Loss Prevention, 数据丢失预防 ）案例'''
+# 这个类的目的是根据DLP案例的历史成功率，动态地选择下一个案例，以模拟或预测不同案例的选择概率。
+# 通过记录每个案例的成功与失败情况，可以在选择时考虑案例的历史表现，从而影响选择概率的分布。
 class DlpCaseChoose():
     def __init__(self) -> None:
-        self.dlp_case_num = 248
-        self.case_record = []
+        self.dlp_case_num = 248 # 可用的DLP案例的数量，这里设置为 248
+        self.case_record = []   # 用于记录选择的案例
         self.case_success_rate = {}
         for i in range(self.dlp_case_num):
             self.case_success_rate[str(i)] = []
-        self.horizon = 500
+        self.horizon = 500  # 历史记录的时间窗口大小，设置为 500
     
+    '''choose_case 方法用于选择下一个DLP案例'''
     def choose_case(self,):
         if np.random.random()<0.2 or len(self.case_record)<self.horizon:
             return np.random.randint(0, self.dlp_case_num)
@@ -92,80 +97,98 @@ class DlpCaseChoose():
         fail_rate = fail_rate/np.sum(fail_rate)
         return np.random.choice(np.arange(len(fail_rate)), p=fail_rate)
     
+    '''用于更新指定案例的成功记录'''
     def update_success_record(self, success:int, case_id:int):
-        self.case_success_rate[str(case_id)].append(success)
+        self.case_success_rate[str(case_id)].append(success)    # 表示成功与否
         self.case_record.append(case_id)
         
 
 if __name__=="__main__":
     
+    ''' 1. 解析命令行参数 '''
+    # 使用 argparse 模块来解析命令行参数，这些参数可以在运行脚本时指定
     parser = argparse.ArgumentParser()
     parser.add_argument('--agent_ckpt', type=str, default=None) # './model/ckpt/PPO.pt'
-    parser.add_argument('--img_ckpt', type=str, default='./model/ckpt/autoencoder.pt')
-    parser.add_argument('--train_episode', type=int, default=100000)
-    parser.add_argument('--eval_episode', type=int, default=2000)
-    parser.add_argument('--verbose', type=bool, default=True)
-    parser.add_argument('--visualize', type=bool, default=True)
+    parser.add_argument('--img_ckpt', type=str, default='./model/ckpt/autoencoder.pt')  # 图像编码器模型的检查点路径
+    parser.add_argument('--train_episode', type=int, default=100000)    # 训练的总episode数
+    parser.add_argument('--eval_episode', type=int, default=2000)   # 评估的episode数
+    parser.add_argument('--verbose', type=bool, default=True)   # 是否打印详细信息
+    parser.add_argument('--visualize', type=bool, default=True) # 是否可视化
     args = parser.parse_args()
 
-    verbose = args.verbose
+    verbose = args.verbose  # TBD, 利于调试信息打印
 
+    ''' 2. 根据参数设置环境 '''
     if args.visualize:
         raw_env = CarParking(fps=100, verbose=verbose,)
     else:
         raw_env = CarParking(fps=100, verbose=verbose, render_mode='rgb_array')
     env = CarParkingWrapper(raw_env)
+
+    ''' 3. 初始化场景选择器 '''
     scene_chooser = SceneChoose()
     dlp_case_chooser = DlpCaseChoose()
 
+    ''' 4. 设置日志和模型保存路径 '''
     # the path to log and save model
     relative_path = '.'
     current_time = time.localtime()
     timestamp = time.strftime("%Y%m%d_%H%M%S", current_time)
     save_path = relative_path+'/log/exp/ppo_%s/' % timestamp
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-    writer = SummaryWriter(save_path)
-    # configs log
-    copyfile('./configs.py', save_path+'configs.txt')
-    print("You can track the training process by command 'tensorboard --log-dir %s'" % save_path)
 
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)  # 如果路径不存在，则递归地创建该路径
+
+    writer = SummaryWriter(save_path)   # 创建一个用于写入 TensorBoard 日志的 SummaryWriter 对象
+    # configs log
+    copyfile('./configs.py', save_path+'configs.txt')   # 将当前目录下的 configs.py 文件复制到 save_path 目录下，并命名为 configs.txt
+    print("You can track the training process by command 'tensorboard --log-dir %s'" % save_path)   # 输出一条消息，提示用户可以通过运行 tensorboard 命令并指定 --log-dir 参数来跟踪训练过程中生成的日志文件
+
+    ''' 5. 设置随机种子 '''
     seed = SEED
     # env.seed(seed)
     env.action_space.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
+    '''6. 配置Agent模型参数 '''
     actor_params = ACTOR_CONFIGS
     critic_params = CRITIC_CONFIGS
     configs = {
-        "discrete": False,
-        "observation_shape": env.observation_shape,
-        "action_dim": env.action_space.shape[0],
-        "hidden_size": 64,
-        "activation": "tanh",
-        "dist_type": "gaussian",
+        "discrete": False,  # 这里设置为 False 表示动作空间是连续的
+        "observation_shape": env.observation_shape, # shape应该理解为 维度 吧
+        "action_dim": env.action_space.shape[0],    # 给出了动作空间的维度
+        "hidden_size": 64,  # 神经网络中隐藏层的大小
+        "activation": "tanh",   # 神经网络中的激活函数类型
+        "dist_type": "gaussian",    # 策略网络的输出分布类型。这里选择了高斯分布，通常用于连续动作空间的策略网络
         "save_params": False,
         "actor_layers": actor_params,
         "critic_layers": critic_params,
     }
 
+    ''' 7. 加载预训练模型 '''
     rl_agent = PPO(configs)
     checkpoint_path = args.agent_ckpt
-    if checkpoint_path is not None:
-        rl_agent.load(checkpoint_path, params_only=True)
+    if checkpoint_path is not None: # 首先检查是否提供了预训练模型的检查点路径 args.agent_ckpt
+        # 调用 rl_agent 对象的 load 方法来加载预训练模型
+        # 参数 params_only=True 表示仅加载模型的参数而不加载优化器状态或其他附加信息。
+        # 这通常用于在训练过程中恢复模型参数以继续训练或用于评估
+        rl_agent.load(checkpoint_path, params_only=True)    
         print('load pre-trained model!')
+
+    ''' 8. 加载图像编码器模型 '''
     img_encoder_checkpoint =  args.img_ckpt if USE_IMG else None
     if img_encoder_checkpoint is not None and os.path.exists(img_encoder_checkpoint):
         rl_agent.load_img_encoder(img_encoder_checkpoint, require_grad=UPDATE_IMG_ENCODE)
     else:
         print('not load img encoder')
 
+    ''' 9. 设置规划器和agent '''
     step_ratio = env.vehicle.kinetic_model.step_len*env.vehicle.kinetic_model.n_step*VALID_SPEED[1]
     rs_planner = RsPlanner(step_ratio)
-    parking_agent = ParkingAgent(rl_agent, rs_planner)
+    parking_agent = ParkingAgent(rl_agent, rs_planner)  # 是个 PPO + RS 的 hybrid planner
 
-
+    ''' 10. 初始化存储变量 '''
     reward_list = []
     reward_per_state_list = []
     reward_info_list = []
@@ -173,6 +196,7 @@ if __name__=="__main__":
     succ_record = []
     best_success_rate = [0, 0, 0, 0]
 
+    ''' 11. train func '''
     for i in range(args.train_episode):
         scene_chosen = scene_chooser.choose_case()
         if scene_chosen == 'dlp':
@@ -271,6 +295,7 @@ if __name__=="__main__":
             f.savefig('%s/reward.png'%save_path)
             f.clear()
 
+    ''' 12. 模型评估 '''
     # evaluation
     eval_episode = args.eval_episode
     choose_action = True
