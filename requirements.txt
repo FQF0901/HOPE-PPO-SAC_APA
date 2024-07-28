@@ -1,12 +1,12 @@
 numpy
-shapely # 用于处理几何对象的操作，例如点、线、面等
-pygame  # 专为开发2D游戏而设计的 Python 库
+shapely
+pygame
 gym
-heapdict    # 提供了一个结合了堆（heap）和字典（dictionary）特性的数据结构
-opencv-python   # 开源的计算机视觉和图像处理库
-scipy   # 建立在 NumPy 数组对象之上，并提供了许多操作这些数组的功能。主要功能包括数值积分、优化、信号处理、线性代数、统计学、常微分方程求解等
+heapdict
+opencv-python
+scipy
 tensorboard
 tqdm
 matplotlib
-einops  # 用于操作张量（tensors）的重新排列和转换
+einops
 
