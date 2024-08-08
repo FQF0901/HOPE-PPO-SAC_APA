@@ -73,42 +73,25 @@ class PPOAgent(AgentBase):
         '''
         Initialize 1.the network, 2.the optimizer, 3.the checklist.
         '''
-        self.actor_net = \
-            MultiObsEmbedding(self.configs.actor_layers).to(self.device)
+        self.actor_net = MultiObsEmbedding(self.configs.actor_layers).to(self.device)
         if self.configs.dist_type == "gaussian":
-            self.log_std = \
-                nn.Parameter(
-                    torch.zeros(1, self.configs.action_dim), requires_grad=False
-                ).to(self.device)
+            self.log_std = nn.Parameter(torch.zeros(1, self.configs.action_dim), requires_grad=False).to(self.device)
             self.log_std.requires_grad = True
-            self.actor_optimizer = \
-                torch.optim.Adam(
-                    [{'params':self.actor_net.parameters()}, {'params': self.log_std}], 
-                    self.configs.lr_actor, 
+            self.actor_optimizer = torch.optim.Adam([{'params':self.actor_net.parameters()}, {'params': self.log_std}], self.configs.lr_actor, 
                     # eps=self.configs.lr_actor
                 )
         else:
-            self.actor_optimizer = \
-                torch.optim.Adam(
-                    self.actor_net.parameters(), 
-                    eps=self.configs.lr_actor
-                )
+            self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), eps=self.configs.lr_actor)
 
-        self.critic_net = \
-            MultiObsEmbedding(self.configs.critic_layers).to(self.device)
-        self.critic_optimizer = \
-            torch.optim.Adam(
-                self.critic_net.parameters(), 
-                self.configs.lr_critic,
-                eps=self.configs.adam_epsilon
-            )
-        self.critic_target = deepcopy(self.critic_net).to(self.device)
+        self.critic_net = MultiObsEmbedding(self.configs.critic_layers).to(self.device)
+        self.critic_optimizer = torch.optim.Adam(self.critic_net.parameters(), self.configs.lr_critic,eps=self.configs.adam_epsilon)
+        self.critic_target = deepcopy(self.critic_net).to(self.device)  # 初始化价值网络的目标网络, 通过深度复制 (deepcopy) 的方式初始化了 critic_net 的目标网络 critic_target，确保两个网络的初始参数相同
         
         # save and load
         self.check_list = [ # (name, item, save_state_dict)
-            ("configs", self.configs, 0),
-            ("actor_net", self.actor_net, 1),
-            ("actor_optimizer", self.actor_optimizer, 1),
+            ("configs", self.configs, 0),   # 存储算法配置信息 self.configs
+            ("actor_net", self.actor_net, 1),   # 存储策略网络 self.actor_net 的状态字典
+            ("actor_optimizer", self.actor_optimizer, 1),   # 存储策略网络优化器 self.actor_optimizer 的状态字典
             ("critic_net", self.critic_net, 1),
             ("critic_optimizer", self.critic_optimizer, 1),
             ("critic_target", self.critic_target, 1)
@@ -116,30 +99,33 @@ class PPOAgent(AgentBase):
         if self.configs.dist_type == "gaussian":
             self.check_list.append(("log_std", self.log_std, 0))
 
+    ''' 深度强化学习（Deep Reinforcement Learning, DRL）中的策略网络（actor）的前向传播方法 '''
+    # 定义了一个方法 _actor_forward，接受一个参数 obs，预期返回一个 torch.distributions.Distribution 对象，表示策略网络输出的概率分布
     def _actor_forward(self, obs) -> torch.distributions.Distribution: # to be replaced
-        observation = deepcopy(obs)
+        observation = deepcopy(obs) # 对输入的观测数据 obs 进行深度复制，以防止原始数据被修改
         if self.configs.state_norm:
-            observation = self.state_normalize.state_norm(observation)
-        observation = self.obs2tensor(observation)
+            observation = self.state_normalize.state_norm(observation)  # 对观测数据进行归一化处理
+        observation = self.obs2tensor(observation)  # 将处理过的观测数据转换为张量
         
-        with torch.no_grad():
-            policy_dist = self.actor_net(observation)
+        with torch.no_grad():   # 进入一个 torch.no_grad() 的上下文环境
+            policy_dist = self.actor_net(observation)   # 将处理后的观测数据 observation 输入到 actor_net 神经网络中，得到策略网络输出的分布参数 policy_dist
+            # 根据配置和策略网络输出的不同，构造不同类型的概率分布对象 dist
             if len(policy_dist.shape) > 1 and policy_dist.shape[0] > 1:
                 raise NotImplementedError
             if self.discrete:
-                dist = Categorical(F.softmax(policy_dist, dim=1))
+                dist = Categorical(F.softmax(policy_dist, dim=1))   # 构造一个 Categorical 分布对象，使用 softmax 对 policy_dist 进行处理
             elif self.configs.dist_type == "beta":
-                alpha, beta = torch.chunk(policy_dist, 2, dim=-1)
+                alpha, beta = torch.chunk(policy_dist, 2, dim=-1)   # 将 policy_dist 切分为 alpha 和 beta 参数，并应用 softplus 函数和偏置，然后构造一个 Beta 分布对象
                 alpha = F.softplus(alpha) + 1.0
                 beta = F.softplus(beta) + 1.0
                 dist = Beta(alpha, beta)
             elif self.configs.dist_type == "gaussian":
-                mean =  torch.clamp(policy_dist,-1,1)  
+                mean =  torch.clamp(policy_dist,-1,1)   # 将 policy_dist 作为均值，self.log_std 作为对数标准差，通过 torch.clamp 确保均值在 [-1, 1] 范围内，构造一个 Normal（高斯）分布对象
                 log_std = self.log_std.expand_as(mean)  # To make 'log_std' have the same dimension as 'mean'
                 std = torch.exp(log_std)
                 dist = Normal(mean, std)
             else:
-                raise NotImplementedError
+                raise NotImplementedError   # 如果未知的分布类型，则抛出 NotImplementedError 异常
             
         return dist
     
