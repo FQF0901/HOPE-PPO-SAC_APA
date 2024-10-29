@@ -161,7 +161,7 @@ class MultiObsEmbedding(nn.Module):
         for param in self.embed_img.parameters():
             param.requires_grad = require_grad
 
-    def forward(self, x:dict):
+    def forward(self, x:dict):  # PPO reasoning process
         '''
             x: dictionary of different input modal. Includes:
 
@@ -190,7 +190,7 @@ class MultiObsEmbedding(nn.Module):
             embed = torch.stack(features, dim=1)
         else:
             embed = cat(features, dim=1)
-        out = self.net(embed)
+        out = self.net(embed)   # actor net
         if self.output_layer is not None:
             out = self.output_layer(out)
         return out

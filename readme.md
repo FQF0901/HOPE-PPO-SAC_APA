@@ -28,7 +28,10 @@ and install pytorch from [https://pytorch.org/](https://pytorch.org/).
 ### Run a pre-trained agent
 ```Shell
 cd src
+
 python ./evaluation/eval_mix_scene.py ./model/ckpt/HOPE_SAC0.pt --eval_episode 10 --visualize True
+
+python ./evaluation/eval_mix_scene.py ./model/ckpt/HOPE_PPO.pt --eval_episode 50 --visualize True
 ```
 You can find some other pre-trained weights in ``./src/model/ckpt``.
 

@@ -44,27 +44,44 @@ class PPOConfig(ConfigBase):
 
 
 class PPOAgent(AgentBase):
+    """
+    PPOAgent 是一个实现 Proximal Policy Optimization (PPO) 算法的类。
+    它继承自 AgentBase 类，通过特定的配置和可选参数初始化 PPO 代理，这些参数包括是否启用详细输出、保存和加载参数等。
+
+    参数:
+    - configs (dict): 包含 PPO 代理配置的字典。
+    - discrete (bool, 可选): 表示动作空间是否离散的标志。默认为 False。
+    - verbose (bool, 可选): 启用详细输出的标志。默认为 False。
+    - save_params (bool, 可选): 表示是否保存参数的标志。默认为 False。
+    - load_params (bool, 可选): 表示是否加载参数的标志。默认为 False。
+    """
+
     def __init__(
         self, configs: dict, discrete: bool = False, verbose: bool = False,
         save_params: bool = False, load_params: bool = False
     ) -> None:
-
+        # 初始化父类 AgentBase，传入 PPO 配置和其他参数
         super().__init__(PPOConfig, configs, verbose, save_params, load_params)
+
+        # 标志变量，表示动作空间是否离散
         self.discrete = discrete
+
+        # 初始化动作过滤器，用于处理动作掩码
         self.action_filter = ActionMask()
 
-        # debug
+        # debug 调试列表，用于存储演员（Actor）和评论家（Critic）的损失值
         self.actor_loss_list = []
         self.critic_loss_list = []
 
-        # the networks
+        # the networks 初始化神经网络，包括演员网络和评论家网络
         self._init_network()
 
         # As a on-policy RL algorithm, PPO does not have memory, the self.memory represents
         # the buffer
-        self.memory = ReplayMemory(self.configs.batch_size, ["log_prob","next_obs"])
+        # 初始化经验回放内存，用于存储经验。PPO 是一种基于策略的方法，因此这里的内存主要用于存储当前策略生成的经验
+        self.memory = ReplayMemory(self.configs.batch_size, ["log_prob", "next_obs"])
 
-        # tricks
+        # tricks 可选的状态归一化技巧，用于提高训练的稳定性
         if self.configs.state_norm:
             self.state_normalize = StateNorm(self.configs.observation_shape)
 
@@ -147,7 +164,7 @@ class PPOAgent(AgentBase):
 
     def choose_action(self, obs):
 
-        dist = self._actor_forward(obs)
+        dist = self._actor_forward(obs) # 此处是推理网
         action_mask = obs['action_mask']
         action, other_info = self._post_process_action(dist, action_mask)
                 

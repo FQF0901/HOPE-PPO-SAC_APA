@@ -88,7 +88,7 @@ class ParkingAgent(object):
             other: the other information, such as the log_prob of the action in case of PPO
         '''
         if not self.executing_rs:
-            return self.agent.choose_action(obs)
+            return self.agent.choose_action(obs)    # net reason process
         else:
             action = self.planner.get_action()
             log_prob = self.agent.get_log_prob(obs, action)

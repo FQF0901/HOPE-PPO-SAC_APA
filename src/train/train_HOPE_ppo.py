@@ -68,7 +68,7 @@ class SceneChoose():
         fail_rate = fail_rate/np.sum(fail_rate)
         return np.random.choice(np.arange(len(fail_rate)), p=fail_rate)
 
-'''用于选择DLP ( Data Loss Prevention, 数据丢失预防 ）案例'''
+'''用于选择DLP ( dragon lake park ）案例'''
 # 这个类的目的是根据DLP案例的历史成功率，动态地选择下一个案例，以模拟或预测不同案例的选择概率。
 # 通过记录每个案例的成功与失败情况，可以在选择时考虑案例的历史表现，从而影响选择概率的分布。
 class DlpCaseChoose():
@@ -218,7 +218,7 @@ if __name__=="__main__":
         # 11.3 主循环：一个完整的训练周期
         while not done:
             step_num += 1
-            action, log_prob = parking_agent.choose_action(obs)
+            action, log_prob = parking_agent.choose_action(obs) # 推理阶段
             next_obs, reward, done, info = env.step(action)
             reward_info.append(list(info['reward_info'].values()))
             total_reward += reward
@@ -230,7 +230,7 @@ if __name__=="__main__":
             if len(parking_agent.memory) % parking_agent.configs.batch_size == 0:
                 if verbose:
                     print("Updating the agent.")
-                actor_loss, critic_loss = parking_agent.update()
+                actor_loss, critic_loss = parking_agent.update()    # 训练阶段
                 writer.add_scalar("actor_loss", actor_loss, i)
                 writer.add_scalar("critic_loss", critic_loss, i)
             
