@@ -5,6 +5,40 @@ from torch import nn
 from einops import rearrange
 from tqdm import trange
 
+'''
+AttentionNetwork
+├── encoder (Transformer)
+│   ├── layers (nn.ModuleList) [depth 层]
+│   │   └── [i-th Layer]
+│   │       ├── PreNorm
+│   │       │   ├── LayerNorm (nn.LayerNorm) [dim]
+│   │       │   └── res
+│   │       │       └── attn (Attention) + x
+│   │       │           ├── to_qkv (nn.Linear) [dim -> inner_dim * 3]
+│   │       │           ├── q, k, v (rearrange) [b, n, (h d) -> b, h, n, d]
+│   │       │           ├── dots (torch.matmul) [b, h, n, n]
+│   │       │           ├── attn (nn.Softmax) [b, h, n, n]
+│   │       │           ├── out (torch.matmul) [b, h, n, d]
+│   │       │           └── to_out (nn.Sequential) [inner_dim -> dim]
+│   │       │               ├── nn.Linear [inner_dim -> dim]
+│   │       │               └── nn.Dropout [dropout]
+│   │       └── PreNorm
+│   │           ├── LayerNorm (nn.LayerNorm) [dim]
+│   │           └── res
+│   │               └── ff (FeedForward) + x
+│   │                   ├── nn.Linear [dim -> hidden_dim]
+│   │                   ├── nn.Tanh
+│   │                   ├── nn.Dropout [dropout]
+│   │                   ├── nn.Linear [hidden_dim -> dim]
+│   │                   └── nn.Dropout [dropout]
+│   └── ... (重复 depth 层)
+├── rearrange [b, n, d -> b, (n d)]
+└── output (nn.Sequential)
+    ├── nn.Linear [(n_features * dim) -> hidden_dim]
+    ├── nn.Tanh
+    └── nn.Linear [hidden_dim -> output_dim]
+'''
+
 class PreNorm(nn.Module):
     """
     在应用特定函数之前执行层归一化的模块。

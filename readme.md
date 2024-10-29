@@ -1,6 +1,83 @@
 # HOPE: A Reinforcement Learning-based Hybrid Policy Path Planner for Diverse Parking Scenarios
 ![pipeline](assets/algo_struct.png)
 
+```mermaid
+graph TD
+    subgraph MultiObsEmbedding
+        input[input]
+
+        subgraph Embedding_Layers
+            lidar_input[lidar: b, l]
+            target_input[target: b, t]
+            action_mask_input[action_mask: b, a]
+            img_input[img: b, c, w, h]
+            action_input[action: b, act]
+
+            embed_lidar[Embed Lidar]
+            embed_tgt[Embed Target]
+            embed_am[Embed Action Mask]
+            embed_img[Embed Image]
+            re_embed_img[Re-Embed Image]
+            embed_action[Embed Action]
+
+            lidar_input --> embed_lidar
+            target_input --> embed_tgt
+            action_mask_input --> embed_am
+            img_input --> embed_img
+            embed_img --> re_embed_img
+            action_input --> embed_action
+
+            embed_lidar --> feature_lidar[feature_lidar: b, embed_size]
+            embed_tgt --> feature_target[feature_target: b, embed_size]
+            embed_am --> feature_am[feature_am: b, embed_size]
+            re_embed_img --> feature_img[feature_img: b, embed_size]
+            embed_action --> feature_action[feature_action: b, embed_size]
+        end
+
+        features_stack[Stack Features]
+        feature_lidar --> features_stack
+        feature_target --> features_stack
+        feature_am --> features_stack
+        feature_img --> features_stack
+        feature_action --> features_stack
+
+        subgraph Network
+            use_attention[Use Attention?]
+            net[Net]
+            output_layer[Output Layer]
+
+            features_stack --> use_attention
+            use_attention -->|No| simple_net[Simple Net]
+            use_attention -->|Yes| attention_net[AttentionNetwork]
+
+            subgraph Simple_Net
+                simple_layers[Layers]
+                simple_output[Output Layer]
+
+                features_stack --> simple_layers
+                simple_layers --> simple_output
+                simple_output --> simple_net
+            end
+
+            subgraph Attention_Net
+                attention_encoder[Transformer Encoder]
+                attention_rearrange[Rearrange]
+                attention_output[Sequential Output]
+
+                features_stack --> attention_encoder
+                attention_encoder --> attention_rearrange
+                attention_rearrange --> attention_output
+                attention_output --> attention_net
+            end
+
+            net --> output_layer
+        end
+
+        output[out: b, output_size]
+        output_layer --> output
+    end
+```
+
 This repository contains code for the paper [HOPE: A Reinforcement Learning-based Hybrid Policy Path Planner for Diverse Parking Scenarios](https://arxiv.org/abs/2405.20579). This work proposes a novel solution to the path-planning task in parking scenarios. The planner integrates a reinforcement learning agent with Reeds-Shepp curves, enabling effective planning across diverse scenarios. HOPE guides the exploration of the reinforcement learning agent by applying an action mask mechanism and employs a transformer to integrate the perceived environmental information with the mask. Our approach achieved higher planning success rates compared with typical rule-based algorithms and traditional reinforcement learning methods, especially in challenging cases.
 
 ## Examples

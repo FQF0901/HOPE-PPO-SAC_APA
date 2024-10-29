@@ -54,7 +54,7 @@ class MultiObsEmbedding(nn.Module):
             self.net = nn.Sequential(*layers)
         else:
             attention_configs = configs['attention_configs']
-            self.net = AttentionNetwork(
+            self.net = AttentionNetwork(    # 内部仅为 attention encoder，没有decoder
                 embed_size,
                 attention_configs['depth'],
                 attention_configs['heads'],
