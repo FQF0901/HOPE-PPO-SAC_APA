@@ -197,12 +197,31 @@ class ActionMask():
     
     
     def choose_action(self, action_mean, action_std, action_mask):
+        """
+        选择动作函数。
 
+        该函数根据给定的动作平均值、标准差和动作掩码来选择一个动作。
+        它首先将输入的Tensor转换为numpy数组（如果它们是Tensor），
+        然后调整它们的形状以确保它们是一维的。接着，它计算每个可能动作的概率，
+        应用softmax函数以获得选择每个动作的概率，最后根据这些概率随机选择一个动作。
+
+        参数:
+        - action_mean: 动作的平均值，可以是numpy数组或Tensor。
+        - action_std: 动作的标准差，可以是numpy数组或Tensor。
+        - action_mask: 动作的掩码，用于排除无效的动作，可以是numpy数组或Tensor。
+
+        返回:
+        - chosen_action: 最终选择的动作，是一个numpy数组。
+        """
+
+        # 将输入的Tensor转换为numpy数组
         if isinstance(action_mean, torch.Tensor):
             action_mean = action_mean.cpu().numpy()
             action_std = action_std.cpu().numpy()
         if isinstance(action_mask, torch.Tensor):
             action_mask = action_mask.cpu().numpy()
+
+        # 确保输入的数组是一维的
         if len(action_mean.shape) == 2:
             action_mean = action_mean.squeeze(0)
             action_std = action_std.squeeze(0)
@@ -210,18 +229,43 @@ class ActionMask():
             action_mask = action_mask.squeeze(0)
 
         def calculate_probability(mean, std, values):
+            """
+            计算概率函数。
+
+            该函数根据给定的平均值、标准差和一组值来计算这些值相对于正态分布的概率。
+
+            参数:
+            - mean: 正态分布的平均值。
+            - std: 正态分布的标准差。
+            - values: 一组值，用于计算它们在该正态分布下的概率。
+
+            返回:
+            - log_probabilities: 值的概率之和。
+            """
             z_scores = (values - mean) / std
             log_probabilities = -0.5 * z_scores ** 2 - np.log((np.sqrt(2 * np.pi) * std))
             return np.sum(np.clip(log_probabilities, -10, 10), axis=1)
 
+        # 获取可能的动作空间
         possible_actions = np.array(self.action_space)
-        # deal the scaling
+    
+        # 对动作进行缩放处理
         scale_steer = VALID_STEER[1]
         scale_speed = 1
         possible_actions = possible_actions/np.array([scale_steer, scale_speed])
+    
+        # 计算每个可能动作的概率
         prob = calculate_probability(action_mean, action_std, possible_actions)
+    
+        # 应用softmax函数前的指数概率计算
         exp_prob = np.exp(prob) * action_mask
+    
+        # 计算softmax概率
         prob_softmax = exp_prob / np.sum(exp_prob)
-        actions = np.arange(len(possible_actions))
+    
+        # 根据概率选择动作
+        actions = np.arange(len(possible_actions))  # 42个action
         action_chosen = np.random.choice(actions, p=prob_softmax)
+    
+        # 返回选择的动作
         return possible_actions[action_chosen]

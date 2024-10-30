@@ -25,9 +25,9 @@ if __name__=="__main__":
     # 设置命令行参数解析器
     parser = argparse.ArgumentParser()
     # 添加模型检查点路径参数
-    parser.add_argument('ckpt_path', type=str, default=None) # './model/ckpt/HOPE_SAC0.pt'
+    parser.add_argument('ckpt_path', type=str, nargs='?', default='./model/ckpt/HOPE_PPO.pt') # './model/ckpt/HOPE_SAC0.pt'
     # 添加评估轮次参数
-    parser.add_argument('--eval_episode', type=int, default=2000)
+    parser.add_argument('--eval_episode', type=int, default=50)
     # 添加详细输出参数
     parser.add_argument('--verbose', type=bool, default=True)
     # 添加可视化参数

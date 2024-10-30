@@ -166,7 +166,7 @@ class PPOAgent(AgentBase):
 
         dist = self._actor_forward(obs) # 此处是推理网
         action_mask = obs['action_mask']
-        action, other_info = self._post_process_action(dist, action_mask)
+        action, other_info = self._post_process_action(dist, action_mask)   # random action
                 
         return action, other_info
 
