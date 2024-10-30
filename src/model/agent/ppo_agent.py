@@ -149,7 +149,7 @@ class PPOAgent(AgentBase):
     def _post_process_action(self, action_dist:torch.distributions.Distribution , action_mask=None): # to be replaced
         if action_mask is not None:
             mean, std = action_dist.mean, action_dist.stddev
-            action = self.action_filter.choose_action(mean, std, action_mask)
+            action = self.action_filter.choose_action(mean, std, action_mask)   # 使用 action_filter 对动作分布进行后处理，得到一个动作向量
             action = torch.FloatTensor(action).to(self.device)
         else:
             action = action_dist.sample()

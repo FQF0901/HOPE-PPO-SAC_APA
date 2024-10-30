@@ -46,7 +46,7 @@ def eval(env, agent, episode=2000, log_path='', multi_level=False, post_proc_act
             step_num += 1
             # 根据策略选择动作
             if post_proc_action:
-                action, _ = agent.choose_action(obs)
+                action, _ = agent.choose_action(obs)    # 这里有点问题，eval场景下的action choose应该是optimal的，不应该按照概率取
             else:
                 action, _ = agent.get_action(obs)
             # 如果目标没有变化，则随机选择一个动作

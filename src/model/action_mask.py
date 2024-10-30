@@ -265,7 +265,7 @@ class ActionMask():
     
         # 根据概率选择动作
         actions = np.arange(len(possible_actions))  # 42个action
-        action_chosen = np.random.choice(actions, p=prob_softmax)
+        action_chosen = np.random.choice(actions, p=prob_softmax)   # 按照prob_softmax的概率分布对actions进行采样
     
         # 返回选择的动作
         return possible_actions[action_chosen]

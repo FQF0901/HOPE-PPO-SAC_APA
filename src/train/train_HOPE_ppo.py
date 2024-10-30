@@ -108,7 +108,7 @@ if __name__=="__main__":
     ''' 1. 解析命令行参数 '''
     # 使用 argparse 模块来解析命令行参数，这些参数可以在运行脚本时指定
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agent_ckpt', type=str, default=None) # './model/ckpt/PPO.pt'
+    parser.add_argument('--agent_ckpt', type=str, nargs='?', default='./model/ckpt/HOPE_PPO.pt') # './model/ckpt/HOPE_PPO.pt'
     parser.add_argument('--img_ckpt', type=str, default='./model/ckpt/autoencoder.pt')  # 图像编码器模型的检查点路径
     parser.add_argument('--train_episode', type=int, default=100000)    # 训练的总episode数
     parser.add_argument('--eval_episode', type=int, default=2000)   # 评估的episode数
@@ -254,7 +254,7 @@ if __name__=="__main__":
         # 11.4 记录训练统计信息 
         writer.add_scalar("total_reward", total_reward, i)
         writer.add_scalar("avg_reward", np.mean(reward_per_state_list[-1000:]), i)
-        writer.add_scalar("action_std0", parking_agent.log_std.detach().cpu().numpy().reshape(-1)[0],i)
+        writer.add_scalar("action_std0", parking_agent.log_std.detach().cpu().numpy().reshape(-1)[0],i) # 动作标准差
         writer.add_scalar("action_std1", parking_agent.log_std.detach().cpu().numpy().reshape(-1)[1],i)
         for type_id in scene_chooser.scene_types:
             writer.add_scalar("success_rate_%s"%scene_chooser.scene_types[type_id],
