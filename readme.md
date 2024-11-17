@@ -97,7 +97,7 @@ git clone https://github.com/jiamiya/HOPE.git
 cd HOPE
 conda create -n HOPE python==3.8
 conda activate HOPE
-pip3 install -r requirements.txt
+pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 and install pytorch from [https://pytorch.org/](https://pytorch.org/).
 
